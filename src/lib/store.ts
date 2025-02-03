@@ -9,6 +9,7 @@ interface TaskState {
   updateTaskStatus: (taskId: string, newStatus: string) => void;
   updateTaskTitle: (taskId: string, newTitle: string) => void;
   reorderTasks: (activeId: string, overId: string) => void;
+  updateTask: (taskId: string, updatedTask: Task) => void;
 }
 
 export const useTaskStore = create<TaskState>((set) => ({
@@ -43,4 +44,10 @@ export const useTaskStore = create<TaskState>((set) => ({
         tasks: arrayMove(state.tasks, oldIndex, newIndex),
       };
     }),
+  updateTask: (taskId, updatedTask) =>
+    set((state) => ({
+      tasks: state.tasks.map((task) =>
+        task.id === taskId ? updatedTask : task
+      ),
+    })),
 }));

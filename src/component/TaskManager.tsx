@@ -1,19 +1,13 @@
 "use client"
 
-import { useState } from "react"
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { useState, useMemo } from "react"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Input } from "@/components/ui/input"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Calendar, Eye, MessageSquare, MoreHorizontal, Plus } from "lucide-react"
+import { MoreHorizontal, Plus } from "lucide-react"
 import { useTaskStore } from "@/lib/store"
 import AddCardModal from "./AddCardModal"
 import {
   DndContext,
   DragEndEvent,
-  DragOverlay,
   DragStartEvent,
   PointerSensor,
   closestCenter,
@@ -23,10 +17,17 @@ import {
 import {
   SortableContext,
   verticalListSortingStrategy,
-  useSortable,
 } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
+import SortableCard from "./SortableCard"
+import EditTaskModal from './EditTaskModal'
 import { Task } from "@/types/task"
+import SearchBar from "./SearchBar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 
 const COLUMNS = [
   { id: 'general-info', title: 'General Information' },
@@ -36,144 +37,7 @@ const COLUMNS = [
   { id: 'completed', title: 'Ready for Launch' },
 ]
 
-function SortableCard({ task, onEdit, isEditing, editProps }: { 
-  task: Task; 
-  onEdit: () => void;
-  isEditing: boolean;
-  editProps?: {
-    value: string;
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) => void;
-    onKeyDown: (e: React.KeyboardEvent) => void;
-    onSave: () => void;
-    onCancel: () => void;
-  };
-}) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({ id: task.id });
-
-  const style = {
-    transform: CSS.Transform.toString(transform),
-    transition,
-    opacity: isDragging ? 0.5 : 1,
-  };
-
-  return (
-    <div ref={setNodeRef} style={style} {...attributes} {...listeners}>
-      <Card className="bg-white shadow-sm">
-        <CardHeader className="p-3 pb-0">
-          {task.tags && (
-            <div className="flex gap-1 pb-2">
-              {task.tags.map((tag) => (
-                <div
-                  key={tag}
-                  className={`h-1.5 w-8 rounded-full ${
-                    {
-                      purple: "bg-purple-500",
-                      blue: "bg-blue-500",
-                      cyan: "bg-cyan-500",
-                      green: "bg-green-500",
-                      pink: "bg-pink-500",
-                      red: "bg-red-500",
-                    }[tag]
-                  }`}
-                />
-              ))}
-            </div>
-          )}
-          {isEditing && editProps ? (
-            <div className="flex gap-2">
-              <Input
-                value={editProps.value}
-                onChange={editProps.onChange}
-                onKeyDown={editProps.onKeyDown}
-                autoFocus
-                className="text-sm font-medium"
-              />
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={editProps.onSave}
-              >
-                Save
-              </Button>
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={editProps.onCancel}
-              >
-                Cancel
-              </Button>
-            </div>
-          ) : (
-            <h3
-              className="text-sm font-medium cursor-pointer hover:text-blue-600"
-              onClick={onEdit}
-            >
-              {task.title}
-            </h3>
-          )}
-        </CardHeader>
-        <CardContent className="p-3 pt-0">
-          {task.subtitle && <p className="text-xs text-gray-500">{task.subtitle}</p>}
-        </CardContent>
-        {(task.views ||
-          task.comments ||
-          task.date ||
-          task.status ||
-          task.badge ||
-          task.assignee ||
-          task.assignees) && (
-          <CardFooter className="flex items-center gap-4 p-3 pt-0">
-            <div className="flex items-center gap-3 text-gray-500">
-              {task.views && (
-                <div className="flex items-center gap-1 text-xs">
-                  <Eye className="h-4 w-4" />
-                  {task.views}
-                </div>
-              )}
-              {task.comments && (
-                <div className="flex items-center gap-1 text-xs">
-                  <MessageSquare className="h-4 w-4" />
-                  {task.comments}
-                </div>
-              )}
-              {task.date && (
-                <div className="flex items-center gap-1 text-xs">
-                  <Calendar className="h-4 w-4" />
-                  {task.date}
-                </div>
-              )}
-              {task.badge && <div className="text-xs">{task.badge}</div>}
-              {task.status && <div className="text-xs">Status: {task.status}</div>}
-            </div>
-            {(task.assignee || task.assignees) && (
-              <div className="ml-auto flex -space-x-2">
-                {task.assignee && (
-                  <Avatar className="h-6 w-6 border-2 border-white">
-                    <AvatarImage src={task.assignee} />
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
-                )}
-                {task.assignees?.map((assignee, i) => (
-                  <Avatar key={i} className="h-6 w-6 border-2 border-white">
-                    <AvatarImage src={assignee} />
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
-                ))}
-              </div>
-            )}
-          </CardFooter>
-        )}
-      </Card>
-    </div>
-  );
-}
+type SortOption = 'none' | 'dateOldest' | 'dateNewest' | 'alphabetical';
 
 export default function TaskManager() {
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -184,6 +48,11 @@ export default function TaskManager() {
   const updateTaskTitle = useTaskStore((state) => state.updateTaskTitle)
   const [activeId, setActiveId] = useState<string | null>(null);
   const reorderTasks = useTaskStore((state) => state.reorderTasks);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false)
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null)
+  const [searchTerm, setSearchTerm] = useState("")
+  const [filterType, setFilterType] = useState("all")
+  const [columnSortOptions, setColumnSortOptions] = useState<Record<string, SortOption>>({});
   
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -206,12 +75,61 @@ export default function TaskManager() {
     setEditingTitle('')
   }
 
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(task => {
+      const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase())
+      if (!matchesSearch) return false
+
+      switch (filterType) {
+        case "no-date":
+          return !task.startDate && !task.endDate
+        case "has-comments":
+          return task.comments && task.comments > 0
+        case "has-assignee":
+          return task.assignee || (task.assignees && task.assignees.length > 0)
+        case "has-tags":
+          return task.tags && task.tags.length > 0
+        default:
+          return true
+      }
+    })
+  }, [tasks, searchTerm, filterType])
+
   const getTasksByStatus = (status: string) => {
-    return tasks.filter(task => task.status === status)
+    return filteredTasks.filter(task => task.status === status)
   }
+
+  const handleClearSearch = () => {
+    setSearchTerm("")
+    setFilterType("all")
+  }
+
+  const getSortedTasks = (tasks: Task[], sortOption: SortOption) => {
+    if (sortOption === 'none') return tasks;
+
+    return [...tasks].sort((a, b) => {
+      switch (sortOption) {
+        case 'dateOldest':
+          return new Date(a.dateCreated).getTime() - new Date(b.dateCreated).getTime();
+        case 'dateNewest':
+          return new Date(b.dateCreated).getTime() - new Date(a.dateCreated).getTime();
+        case 'alphabetical':
+          return a.title.localeCompare(b.title);
+        default:
+          return 0;
+      }
+    });
+  };
 
   const handleDragStart = (event: DragStartEvent) => {
     setActiveId(event.active.id as string);
+    const draggedTask = tasks.find(task => task.id === event.active.id);
+    if (draggedTask) {
+      setColumnSortOptions(prev => ({
+        ...prev,
+        [draggedTask.status]: 'none'
+      }));
+    }
   };
 
   const handleDragEnd = (event: DragEndEvent) => {
@@ -226,88 +144,143 @@ export default function TaskManager() {
 
   return (
     <div className="min-h-screen bg-[#3B82F6] p-6">
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {COLUMNS.map((column) => {
-            const columnTasks = getTasksByStatus(column.id);
-            
-            return (
-              <div key={column.id} className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-medium text-white">{column.title}</h2>
-                  <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-blue-600">
-                    <MoreHorizontal className="h-4 w-4" />
-                  </Button>
+      <SearchBar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        filterType={filterType}
+        onFilterChange={setFilterType}
+        onClear={handleClearSearch}
+      />
+      <div className="mt-4">
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {COLUMNS.map((column) => {
+              let columnTasks = getTasksByStatus(column.id);
+              columnTasks = getSortedTasks(columnTasks, columnSortOptions[column.id] || 'none');
+              
+              return (
+                <div key={column.id} className="flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <h2 className="text-sm font-medium text-white">{column.title}</h2>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button variant="ghost" size="icon" className="h-6 w-6 text-white hover:bg-blue-600">
+                          <MoreHorizontal className="h-4 w-4" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem
+                          onClick={() => setColumnSortOptions(prev => ({
+                            ...prev,
+                            [column.id]: 'dateOldest'
+                          }))}
+                        >
+                          Date created (oldest first)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setColumnSortOptions(prev => ({
+                            ...prev,
+                            [column.id]: 'dateNewest'
+                          }))}
+                        >
+                          Date created (newest first)
+                        </DropdownMenuItem>
+                        <DropdownMenuItem
+                          onClick={() => setColumnSortOptions(prev => ({
+                            ...prev,
+                            [column.id]: 'alphabetical'
+                          }))}
+                        >
+                          Card name (alphabetically)
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+                  </div>
+                  <div className="flex flex-col gap-2">
+                    <SortableContext
+                      items={columnTasks.map(task => task.id)}
+                      strategy={verticalListSortingStrategy}
+                    >
+                      {columnTasks.map((task) => (
+                        <SortableCard
+                          key={task.id}
+                          task={task}
+                          isEditing={editingTaskId === task.id}
+                          editProps={
+                            editingTaskId === task.id
+                              ? {
+                                  value: editingTitle,
+                                  onChange: (e) => setEditingTitle(e.target.value),
+                                  onKeyDown: (e) => {
+                                    if (e.key === 'Enter') {
+                                      handleTitleSubmit(task.id);
+                                    } else if (e.key === 'Escape') {
+                                      handleEditCancel();
+                                    }
+                                  },
+                                  onSave: () => handleTitleSubmit(task.id),
+                                  onCancel: handleEditCancel,
+                                }
+                              : undefined
+                          }
+                          onEdit={() => {
+                            setEditingTaskId(task.id);
+                            setEditingTitle(task.title);
+                          }}
+                          onOpenEditModal={() => {
+                            setSelectedTask(task);
+                            setIsEditModalOpen(true);
+                          }}
+                        />
+                      ))}
+                    </SortableContext>
+                    
+                    <Button
+                      variant="ghost"
+                      className="flex w-full items-center justify-between bg-white/10 text-white hover:bg-white/20"
+                      onClick={() => {
+                        setSelectedColumn(column.id);
+                        setIsModalOpen(true);
+                      }}
+                    >
+                      <span className="flex items-center gap-2">
+                        <Plus className="h-4 w-4" />
+                        Add a card
+                      </span>
+                      <span className="flex gap-2 text-xs">
+                        <span>⌘</span>
+                        <span>⏎</span>
+                      </span>
+                    </Button>
+                  </div>
                 </div>
-                <div className="flex flex-col gap-2">
-                  <SortableContext
-                    items={columnTasks.map(task => task.id)}
-                    strategy={verticalListSortingStrategy}
-                  >
-                    {columnTasks.map((task) => (
-                      <SortableCard
-                        key={task.id}
-                        task={task}
-                        isEditing={editingTaskId === task.id}
-                        editProps={
-                          editingTaskId === task.id
-                            ? {
-                                value: editingTitle,
-                                onChange: (e) => setEditingTitle(e.target.value),
-                                onKeyDown: (e) => {
-                                  if (e.key === 'Enter') {
-                                    handleTitleSubmit(task.id);
-                                  } else if (e.key === 'Escape') {
-                                    handleEditCancel();
-                                  }
-                                },
-                                onSave: () => handleTitleSubmit(task.id),
-                                onCancel: handleEditCancel,
-                              }
-                            : undefined
-                        }
-                        onEdit={() => {
-                          setEditingTaskId(task.id);
-                          setEditingTitle(task.title);
-                        }}
-                      />
-                    ))}
-                  </SortableContext>
-                  
-                  <Button
-                    variant="ghost"
-                    className="flex w-full items-center justify-between bg-white/10 text-white hover:bg-white/20"
-                    onClick={() => {
-                      setSelectedColumn(column.id);
-                      setIsModalOpen(true);
-                    }}
-                  >
-                    <span className="flex items-center gap-2">
-                      <Plus className="h-4 w-4" />
-                      Add a card
-                    </span>
-                    <span className="flex gap-2 text-xs">
-                      <span>⌘</span>
-                      <span>⏎</span>
-                    </span>
-                  </Button>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </DndContext>
+              );
+            })}
+          </div>
+        </DndContext>
+      </div>
 
       <AddCardModal 
         isModalOpen={isModalOpen}
         setIsModalOpen={setIsModalOpen}
         columnId={selectedColumn}
       />
+
+      {selectedTask && (
+        <EditTaskModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setSelectedTask(null);
+          }}
+          task={selectedTask}
+        />
+      )}
     </div>
   )
 }

@@ -10,4 +10,7 @@ export interface Task {
     badge?: string;
     assignee?: string;
     assignees?: string[];
+    startDate?: string;
+    endDate?: string;
+    dateCreated?: any;
 }

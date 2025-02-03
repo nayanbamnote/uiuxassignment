@@ -1,24 +1,17 @@
-'use client'
 
 import TaskManager from "@/component/TaskManager";
-import { Button } from "@/components/ui/button";
-import { Card, CardHeader, CardContent, CardFooter } from "@/components/ui/card";
-import { DialogHeader } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
-import { columns } from "@/constants/Taskboard";
-import { Avatar, AvatarImage, AvatarFallback } from "@radix-ui/react-avatar";
-import { Dialog, DialogContent, DialogTitle } from "@radix-ui/react-dialog";
-import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@radix-ui/react-select";
-import { MoreHorizontal, Eye, MessageSquare, Calendar, Plus } from "lucide-react";
-
-import { useState } from "react";
+import MembersTimeline from "@/component/Timeline/MembersTimeline";
 
 export default function Home() {
-  const [isModalOpen, setIsModalOpen] = useState(false)
-
   return (
-    <div>
+    <main className="min-h-screen">
       <TaskManager />
-    </div>
+      <div className="min-h-screen bg-gray-50 p-8">
+        <h1 className="text-4xl font-serif text-center mb-8">Members Dashboard</h1>
+        <div className="max-w-7xl mx-auto h-[600px]">
+          <MembersTimeline />
+        </div>
+      </div>
+    </main>
   );
 }

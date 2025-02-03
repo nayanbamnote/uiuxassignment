@@ -49,3 +49,33 @@ body {
     border: none;
     border-right: solid 2px #ccc !important;
 }
+
+.react-calendar-timeline .rct-item {
+    position: absolute;
+    box-sizing: border-box;
+    font-size: 12px;
+    color: white;
+    cursor: pointer;
+    z-index: 80;
+    border-radius: 4px;
+    box-shadow: 0 1px 5px rgba(0, 0, 0, 0.15);
+}
+
+.react-calendar-timeline .rct-item .rct-item-content {
+    position: relative;
+    height: 100%;
+    padding: 0;
+    overflow: hidden;
+    border-radius: 4px;
+    border: none;
+}
+
+.react-calendar-timeline .rct-sidebar {
+    background: #f5f5f5;
+    padding: 10px;
+}
+
+.react-calendar-timeline .rct-header {
+    background: #f5f5f5;
+    border-bottom: 1px solid #ddd;
+}

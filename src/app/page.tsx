@@ -1,17 +1,32 @@
-
 import TaskManager from "@/component/TaskManager";
 import MembersTimeline from "@/component/Timeline/MembersTimeline";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function Home() {
   return (
     <main className="min-h-screen">
-      <TaskManager />
-      <div className="min-h-screen bg-gray-50 p-8">
-        <h1 className="text-4xl font-serif text-center mb-8">Members Dashboard</h1>
-        <div className="max-w-7xl mx-auto h-[600px]">
-          <MembersTimeline />
+      <Tabs defaultValue="board" className="w-full">
+        <div className="border-b">
+          <div className="px-4">
+            <TabsList className="h-10">
+              <TabsTrigger value="board" className="data-[state=active]:bg-background">
+                Board
+              </TabsTrigger>
+              <TabsTrigger value="timeline" className="data-[state=active]:bg-background">
+                Timeline
+              </TabsTrigger>
+            </TabsList>
+          </div>
         </div>
-      </div>
+
+        <TabsContent value="board" className="m-0">
+          <TaskManager />
+        </TabsContent>
+
+        <TabsContent value="timeline" className="m-0">
+              <MembersTimeline />
+        </TabsContent>
+      </Tabs>
     </main>
   );
 }

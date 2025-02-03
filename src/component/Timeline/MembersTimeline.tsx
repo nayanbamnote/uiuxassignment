@@ -1,134 +1,142 @@
 'use client'
 
-import React, {Component} from 'react'
+import React, { useMemo } from 'react'
 import moment from 'moment'
-import Timeline, {TimelineMarkers, TodayMarker} from 'react-calendar-timeline'
+import Timeline, { TimelineMarkers, TodayMarker } from 'react-calendar-timeline'
 import 'react-calendar-timeline/dist/style.css'
 import './style.css'
-import keys from './keys'
-import AddItemsForm from './AddItemsForm'
-import groups from './groups'
-import items from './items'
+import { useTaskStore } from '@/lib/store'
 import SundaysMarker from './SundaysMarker'
-import { TimelineItem, TimelineGroup, FormData } from './types'
 import itemRender from './itemRender'
 
-interface State {
-  keys: any;
-  groups: TimelineGroup[];
-  items: TimelineItem[];
-  y19: Date;
+// Define timeline groups (can be moved to a separate file if needed)
+const TIMELINE_GROUPS = [
+  {
+    id: 'backlog',
+    title: 'Backlog',
+    rightTitle: 'Planning Phase'
+  },
+  {
+    id: 'in-progress',
+    title: 'In Progress',
+    rightTitle: 'Active Development'
+  },
+  {
+    id: 'paused',
+    title: 'Paused',
+    rightTitle: 'On Hold'
+  },
+  {
+    id: 'completed',
+    title: 'Completed',
+    rightTitle: 'Done'
+  },
+  {
+    id: 'general-info',
+    title: 'General Info',
+    rightTitle: 'Information'
+  }
+]
+
+export default function MembersTimeline() {
+  const tasks = useTaskStore((state) => state.tasks)
+  const updateTask = useTaskStore((state) => state.updateTask)
+
+  // Convert tasks to timeline items
+  const timelineItems = useMemo(() => {
+    return tasks.map(task => ({
+      id: task.id,
+      group: task.status,
+      title: task.title,
+      start: moment(task.startDate || new Date()),
+      end: moment(task.endDate || moment().add(1, 'day')),
+      className: task.status,
+      bgColor: getColorForStatus(task.status),
+      selectedBgColor: getColorForStatus(task.status),
+      canMove: true,
+      canResize: true,
+      canChangeGroup: true
+    }))
+  }, [tasks])
+
+  const handleItemMove = (itemId: string, dragTime: number, newGroupOrder: number) => {
+    const task = tasks.find(t => t.id === itemId)
+    if (!task) return
+
+    const newStatus = TIMELINE_GROUPS[newGroupOrder].id
+    const timeDiff = moment(task.endDate).diff(moment(task.startDate))
+    
+    updateTask(itemId, {
+      ...task,
+      status: newStatus,
+      startDate: moment(dragTime).format('YYYY-MM-DD'),
+      endDate: moment(dragTime).add(timeDiff, 'milliseconds').format('YYYY-MM-DD')
+    })
+  }
+
+  const handleItemResize = (itemId: string, time: number, edge: string) => {
+    const task = tasks.find(t => t.id === itemId)
+    if (!task) return
+
+    updateTask(itemId, {
+      ...task,
+      startDate: edge === 'left' ? moment(time).format('YYYY-MM-DD') : task.startDate,
+      endDate: edge === 'left' ? task.endDate : moment(time).format('YYYY-MM-DD')
+    })
+  }
+
+  return (
+    <div className="h-screen bg-white">
+      <Timeline
+        groups={TIMELINE_GROUPS}
+        items={timelineItems}
+        keys={{
+          groupIdKey: 'id',
+          groupTitleKey: 'title',
+          groupRightTitleKey: 'rightTitle',
+          itemIdKey: 'id',
+          itemTitleKey: 'title',
+          itemDivTitleKey: 'title',
+          itemGroupKey: 'group',
+          itemTimeStartKey: 'start',
+          itemTimeEndKey: 'end'
+        }}
+        defaultTimeStart={moment().add(-15, 'day')}
+        defaultTimeEnd={moment().add(45, 'day')}
+        rightSidebarWidth={150}
+        rightSidebarContent="Status"
+        sidebarContent="Categories"
+        lineHeight={50}
+        itemRenderer={itemRender}
+        canMove={true}
+        canResize={'both'}
+        onItemMove={handleItemMove}
+        onItemResize={handleItemResize}
+        stackItems
+        itemHeightRatio={0.75}
+        showCursorLine
+      >
+        <TimelineMarkers>
+          <TodayMarker>
+            {({styles}) => (
+              <div style={{...styles, width: '2px', backgroundColor: 'red'}} />
+            )}
+          </TodayMarker>
+          <SundaysMarker />
+        </TimelineMarkers>
+      </Timeline>
+    </div>
+  )
 }
 
-export default class Calendar extends Component<{}, State> {
-  state: State = {
-    keys,
-    groups,
-    items,
-    y19: new Date('2019/1/1'),
+// Update color function to use more opaque colors
+function getColorForStatus(status: string): string {
+  const colors: Record<string, string> = {
+    'backlog': '#4897D8',
+    'in-progress': '#D88948',
+    'paused': '#FA6E59',
+    'completed': '#429970',
+    'general-info': '#59E5FA'
   }
-
-  // addItemHandler = newItems => {
-  //   console.log(newItems)
-  //   this.setState(state => ({
-  //     items: {...state.items, newItems}
-  //   }))
-  // }
-  toTimestamp = (strDate: string): number => {
-    const d = new Date(strDate)
-    return d.getTime() / 1000
-  }
-
-  addItemHandler = (item: FormData): void => {
-    const newItem: TimelineItem = {
-      id: 1 + Math.max(...this.state.items.map(i => i.id)),
-      group: parseInt(item.mentor),
-      title: item.status,
-      className: item.status.toLowerCase(),
-      start: moment(new Date(item.start)),
-      end: moment(new Date(item.end)),
-    }
-
-    this.setState(state => ({
-      items: [...state.items, newItem]
-    }))
-  }
-  handleItemMove = (itemId: number, dragTime: number, newGroupOrder: number): void => {
-    const {items, groups} = this.state
-
-    const group = groups[newGroupOrder]
-
-    this.setState({
-      items: items.map(item =>
-        item.id === itemId
-          ? Object.assign({}, item, {
-            start: dragTime,
-            end: dragTime + (item.end - item.start),
-            group: group.id
-          })
-          : item
-      )
-    })
-
-    console.log('Moved', itemId, dragTime, newGroupOrder)
-  }
-
-  handleItemResize = (itemId: number, time: number, edge: 'left' | 'right'): void => {
-    const {items} = this.state
-
-    this.setState({
-      items: items.map(item =>
-        item.id === itemId
-          ? Object.assign({}, item, {
-            start: edge === 'left' ? time : item.start,
-            end: edge === 'left' ? item.end : time
-          })
-          : item
-      )
-    })
-
-    console.log('Resized', itemId, time, edge)
-  }
-
-  render() {
-    const {keys, groups, items, y19} = this.state
-    return (
-      <>
-        <Timeline
-          keys={keys}
-          groups={groups}
-          // onItemClick={() => alert(1)}
-          items={items}
-          rightSidebarWidth={200}
-          rightSidebarContent="Skills"
-          sidebarContent="Mentors"
-          lineHeight={75}
-          itemRenderer={itemRender}
-          defaultTimeStart={moment(y19).add(-1, 'month')}
-          defaultTimeEnd={moment(y19).add(1.5, 'month')}
-          maxZoom={1.5 * 365.24 * 86400 * 1000}
-          minZoom={1.24 * 86400 * 1000 * 7 * 3}
-          fullUpdate
-          itemTouchSendsClick={false}
-          stackItems
-          itemHeightRatio={0.75}
-          showCursorLine
-          canMove={true}
-          canResize={'both'}
-          onItemMove={this.handleItemMove}
-          onItemResize={this.handleItemResize}
-        >
-          <TimelineMarkers>
-            <TodayMarker>
-              {({styles, date}) => <div style={{...styles, width: '0.5rem', backgroundColor: 'rgba(255,0,0,0.5)'}} />
-              }
-            </TodayMarker>
-            <SundaysMarker />
-          </TimelineMarkers>
-        </Timeline>
-        <AddItemsForm onAddItem={this.addItemHandler} />
-      </>
-    )
-  }
-
+  return colors[status] || '#2196F3'
 }
